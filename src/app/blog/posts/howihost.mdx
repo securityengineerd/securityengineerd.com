@@ -1,0 +1,70 @@
+---
+title: "How a Security Engineer Runs Websites."
+summary: "Learn how I manage to host multiple SSL encrypted domains on a single server."
+publishedAt: "2025-06-03"
+tag: "Docker"
+---
+
+If you've read countless tutorials on how to setup a website, you already know there are more then a few methods to get a website online. I've utilized many approaches during the time I've been making websites, some methods are more convenient, some are more secure. However the method I will be sharing checks all my boxes as a Security Engineer. 
+
+I will release two additional guides on `Linux Server Hardening` and `Docker Web Application Deployment`. At the moment this guide assumes you have an already configured web application.  
+
+Don't laugh, I've been working with websites since I was ten years old, just shy of thirty years! Now here are some things to note about my configuration... 
+
+It's going to take a little work to find my server's IPv4/IPv6 addresses. You could try checking my hostname's DNS records, except you'll only find a Cloudflare proxy address. Even if you manage to find my IPv4 or IPv6 address, what are you going to connect too? You won't find open ports, not even 80, 443, 1433, 3000, 3306, 5000, 5432, 8080, 8443, 27017. 
+
+A port-less server might sound counter-intuitive, but it's possible thanks to Cloudflare's Zero-Trust offerings. Using a Cloudflare Tunnel allows me to expose locally accessible applications to the public. Every application I configure will only accept local connections, accessible only to the server. If you want to view those sites during development, you'll need to connect via SSH and forward the remote application port to your local machine using a command similar to below.
+
+> ssh -R 8080:localhost:8080 username@myserver.tld
+
+When connected via SSH and forwarding port 8080 to the local machine, I can open the browser and view my application through the following URL: https://localhost:8080. 
+
+I've found this configuration to provide several benefits, I've eliminated the need to run a reverse proxy service such as Nginx. Eliminating the need to create individual configs for each upstream application. I've also eliminated the need for LetsEncrypt, or worse... paying for individual SSL certificates. No thanks, I don't have the time or money for all those headaches.
+
+Before you ask if this article is sponsored, no. As a Security Engineer, I've found value in Cloudflare's complimentary services. I struggled for quite a few years trying to effectively manage the DNS of many domains. Eventually I got frustrated with domain limits and went on the hunt for a new DNS provider, which was Cloudflare. My entire methodology for hosting websites changed from that day forward, and hopefully it'll change your's as well. If you are ready to improve your site's security posture, start by creating a Cloudflare account.
+
+## Cloudflare Sign-Up
+
+I'll assume this isn't your first time using the internet, or signing up for a service. The account is free, just go to the site [https://www.cloudflare.com](https://www.cloudflare.com) and click "Start for free" in the big orange button. The sign-up process will require a card, either credit or debit card. As long as you select the "free" plan, I promise you will never be changed a single penny. I've used them for years and have never been charged.
+
+## Adding a Domain
+
+Upon completion of sign-up, you will be prompted to add your domain to Cloudflare followed by three options upon entering your domain. 
+
+1. Quick Scan for DNS records
+2. Manually Enter DNS records
+3. Upload a Zone File
+
+In this tutorial I am assuming this is a new domain, intended for use with an existing web application that is already running on your server. It is recommended that this existing application is configured to only permit connections originating from the local machine. So go ahead and select "Manually Enter DNS Records". We are not going to worry about setting up any DNS records at this time, however it will complain about your domain's name servers. Please set those to Cloudflare, those values should be provided on the same page. Proceed to login with your domain's registrar, setting the name servers to the Cloudflare provided values. Steps following this point are 100% useless unless we have our nameserver's set to Cloudflare.
+
+## Tunnel Connector Setup
+
+Warning: The number of steps listed below might look intimidating, it actually is not. This is what we will be doing, we're logging into Cloudflare's Zero-Trust portal, creating a network tunnel, running two copy and paste commands, and exposing our local application for two DNS records. (@ and www). Eventually I will add a video to cover this section, it really is not as hard as it might appear to be.
+
+1. Login to Cloudflare
+2. Click the link in the left sidebar titled "Zero Trust"
+3. Select "Networks" in the left-hand sidebar.
+4. Select the link titled "Tunnels"
+5. Select the blue button "Create a Tunnel"
+6. Select "Cloudflared" for your tunnel type.
+7. Enter a name for your tunnel, I call mine "linode-lax-dev01". 
+   
+   Using a naming convention lets me identify the hosting provider, the region it's hosted within, and the name of my server. If you only have one server, get creative... how about a robot chicken reference? pestilencePony! 
+   
+   Next we need to select our operating system, run the top command followed by the bottom left command. The first one installs the connector and links it to your account, the second starts the tunnel connector at boot. 
+8. Exposing out local application is easy, the first hostname we will create is our root domain. Ignore the subdomain field, select your domain from the drop down list under Domain. 
+   
+   If your web application runs at http://localhost:8080, select HTTP for the service, enter localhost:8080 in the URL box. 
+   
+   Users visiting our site will receive SSL encrypted access to our newly exposed application. 
+9. Click Save Tunnel
+10. Select the tunnel we just created and click the blue button "Edit Tunnel", then the link "Public Hostnames"
+11. This step is the same as number eight, except in the subdomain field enter "www", select the protocol (http usually), then the address (example: localhost:8080).
+12. Click the blue "Save hostname" button.
+
+If everything went as intended, your website should now be accessible via the root domain and the www subdomain. To add additional domains, add the domain to your DNS. Edit your existing tunnel, and add the public hostnames you desire. If that application runs on port 3000, then point it too localhost:3000. It really does save you countless hours of dealing with configurations and generating SSL certificates, and definitely provides way better security! 
+
+## Other Benefits
+
+Lets say your site really does take off, since you are already configured to use <font color="#2DC26B">Cloudflare</font>, you can easily add paid services such as their web application firewall service. If you site is strictly JAMSTACK - basically plain HTML and CSS you can host your site FOR FREE using Cloudflare pages. It delivers content blazingly fast through the Cloudflare CDN, received by the end-user from a server closest to their physical location. We will also show you how to setup your site on GitHub! Every time you push the most recent version of your to GitHub a web-hook will trigger it's rebuild in Cloudflare. 
+
